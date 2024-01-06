@@ -15,7 +15,7 @@ Here is a "requirements.txt" file, run the file using the "pip install -r requir
 
 python.exe -m pip install --upgrade pip
 
-When importing the project in PyCharm and then in the command line run the command "python manage.py runserver". You can clear the cache using the command "python manage.py clearcache"
+When importing the project in PyCharm and then in the command line run the command `python manage.py runserver`. You can clear the cache using the command `python manage.py clearcache`
 ## Folder Description
 - `static` includes the CSS file and the picture used in the platform.
 - `multifileupload` all the settings and URLs in the project.
