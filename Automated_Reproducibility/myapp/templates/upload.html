@@ -1,0 +1,1590 @@
+{% load static %}
+{% load custom_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head>
+    <title>MultiFile Uploading</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}?">
+    <link rel="shortcut icon" href="#"/>
+</head>
+
+<body>
+
+<div id="heading"><h1>Automated Reproducibility of Digital Artifacts</h1></div>
+
+<form id="uploadForm" action="" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="file-upload">
+        <label for="fileInput" class="button">Select Files
+            <input type="file" id="fileInput" name="file[]" multiple>
+        </label>
+    </div>
+    <br><br>
+    <button id="submitBtn" type="submit" class="submit-button" onclick="showDiv()">
+        Submit
+    </button>
+</form>
+
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-message">File processing in progress....</div>
+    <!-- <div class="loader"></div> -->
+    <div class="loader">
+        <div class="loader-bar"></div>
+    </div>
+    <!-- Add your loading animation or additional message here -->
+</div>
+
+<div id="resultsContainer" class="container" style="display:none;">
+
+    <!-- Table 1: File Information -->
+    <h2>General Information</h2>
+
+    <details>
+        <summary style="font-size: 20px;">
+            <span class="icon">👇</span>
+            <b>Click here to see details</b>
+        </summary>
+        <pre style="background: #FFFFF7; color: black; padding:20px; font-size: 16px;">
+    Overview result of the selected paper.
+        1. Column "Paper Title" represent the title of that paper.
+        2. Column "File Path" indicates where the selected file is situated.
+        3. Column "Data Accessibility", ✔ means means data are accessible and  ✘ means data are not accessible.
+        4. Column "Data Availability",  ✔ means data are available and  ✘ means data are not available.
+      </pre>
+    </details>
+
+    <div class="table-scroll-container">
+        <table id="file-info-table" class="table-container">
+            <thead>
+            <tr>
+                <!-- Add a dropdown menu to select a serial number -->
+                <th><b>Serial Number<br><br>
+                    <label for="serialNumberDropdown"
+                           style="padding-right: 10px; padding-left: 10px"><b>Click </b></label>
+                    <select id="serialNumberDropdown"
+                            onchange="updateTable('file-info-table'); updateTable('link-info-table'); updateTable('download-info-table'); updateTable('code-info-table'); toggleTables();">
+                        <option value="All">All</option>
+                        {% for result in search_results %}
+                            <option value="{{ forloop.counter }}">{{ forloop.counter }}</option>
+                        {% endfor %}
+                    </select>
+                    <img src="{% static 'icon.png' %}"
+                         title="Select any serial number to see the details of that paper."
+                         alt="icon" class="image"
+                         style="width: 25px; height: 25px; padding-left: 20px;"></b>
+                </th>
+                <th><b>Paper Title</b></th>
+                <th><b>File Path</b></th>
+                <th><b>Data Accessibility</b></th>
+                <th><b>Data Availability</b></th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for result in search_results %}
+                <tr>
+                    <td style="text-align: center;">{{ forloop.counter }}</td>
+                    <td style="padding-left: 10px;"><b>{{ result.filename }}</b></td>
+                    <td style="padding-left: 10px;">{{ result.filepath }}</td>
+                    <td style="text-align: center;">
+                        {% if result.git_results or result.zen_results or result.os_results %}
+                            <p>&#10004; </p> <!-- Checkmark symbol ✓ -->
+                        {% else %}
+                            <p>&#10008;</p> <!-- Cross symbol ✗ -->
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if result.git_check or result.zen_check or result.os_check %}
+                            <p>&#10004; </p> <!-- Checkmark symbol ✓ -->
+                        {% else %}
+                            <p>&#10008;</p> <!-- Cross symbol ✗ -->
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Table 2: Link Information -->
+    <h2 style="display: none;">Link Information</h2>
+
+    <details style="display: none;">
+        <summary style="font-size: 20px;">
+            <span class="icon">👇</span>
+            <b>Click here to see details</b>
+        </summary>
+        <pre style="background: #FFFFF7; color: black; padding:20px; font-size: 16px;">
+    The output of the Data Accessibility.
+        1. Column "URL" represents all the URLs (limited to GitHub, Zenodo, and OSF) of the paper.
+        2. Column "Data Accessibility", ✔ means data are accessible and ✘ means data are not accessible.
+        3. Column "Actual Source" represents the actual Source of the code. (limited to GitHub, Zenodo, and OSF)
+      </pre>
+    </details>
+
+    <table id="link-info-table" class="table-container" style="display: none;">
+        <thead>
+        <tr>
+            <th><b>Serial Number</b></th>
+            <th><b>URL</b></th>
+            <th><b>Data Accessibility</b></th>
+            <th><b>Actual Source</b></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for result in search_results %}
+            <tr>
+                <td style="text-align: center;" rowspan="{{ result.total_row }}">{{ forloop.counter }}</td>
+
+                {% if result.git_results %}
+                    {% for url in result.git_results %}
+                        <tr>
+                            <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
+
+                            {% if result.git_results or result.zen_results or result.os_results %}
+                                <td style="text-align: center;"><p>&#10004;</p>
+                                    {% else %}<p>&#10008;</p>
+                                </td>
+                            {% endif %}
+
+                            {% if result.git_check %}
+                                <td style="text-align: center;">Github<br>
+                                    <img src="{% static 'github.png' %}" alt="GitHub Logo"
+                                         style="width: 32px; height: 32px;">
+                                    <br>
+                                </td>
+                            {% else %}
+                                <td style="text-align: center;">Not Found<br>
+                                    <img src="{% static 'red_cross.png' %}" alt="Red Cross"
+                                         style="width: 32px; height: 32px;"><br>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+
+            {% if result.zen_results %}
+                {% for url in result.zen_results %}
+                    <tr>
+                        <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
+
+                        {% if result.git_results or result.zen_results or result.os_results %}
+                            <td style="text-align: center;"><p>&#10004;</p>
+                                {% else %}<p>&#10008;</p>
+                            </td>
+                        {% endif %}
+
+                        {% if result.zen_check %}
+                            <td style="text-align: center;">Zenodo<br>
+                                <img src="{% static 'zenodo.png' %}" alt="Zenodo Logo"
+                                     style="width: 52px; height: 52px;">
+                                <br>
+                            </td>
+                        {% else %}
+                            <td style="text-align: center;">Not Found<br>
+                                <img src="{% static 'red_cross.png' %}" alt="Red Cross"
+                                     style="width: 32px; height: 32px;"><br>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            {% endif %}
+
+            {% if result.os_results %}
+                {% for url in result.os_results %}
+                    <tr>
+                        <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
+
+                        {% if result.git_results or result.zen_results or result.os_results %}
+                            <td style="text-align: center;"><p>&#10004;</p>
+                                {% else %}<p>&#10008;</p>
+                            </td>
+                        {% endif %}
+
+                        {% if result.os_check %}
+                            <td style="text-align: center;">OSF<br>
+                                <img src="{% static 'osf.png' %}" alt="OSF Logo"
+                                     style="width: 32px; height: 32px;"><br>
+                            </td>
+                        {% else %}
+                            <td style="text-align: center;">Not Found<br>
+                                <img src="{% static 'red_cross.png' %}" alt="Red Cross"
+                                     style="width: 32px; height: 32px;"><br>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            {% endif %}
+
+
+            {% if not result.git_results and not result.zen_results and not result.os_results %}
+                <td>No URL Found<br></td>
+
+                <td style="text-align: center;"><p>&#10008;</p></td>
+
+                {% if not result.git_check and not result.zen_check and not result.os_check %}
+                    <td style="text-align: center;">Not Found<br>
+                        <img src="{% static 'red_cross.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                {% endif %}
+            {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+
+    </table>
+
+    <!-- Table 3: Download Information -->
+    <h2 style="display: none;">Download Information</h2>
+
+    <details style="display: none;">
+        <summary style="font-size: 20px;">
+            <span class="icon">👇</span>
+            <b>Click here to see details</b>
+        </summary>
+        <pre style="background: #FFFFF7; color: black; padding:20px; font-size: 16px;">
+    The output of the Data Availability.
+        1. Column "Downloadable Link" represents the actual link that hold the data, or/and codes.
+        2. Column "Download Path" represents the folder path where the code or/and data are download.
+        3. Column "Folder Size" represents the total size of that particular folder.
+        4. Column "Data Availability", ✔ means data are available and  ✘ means data are not available.
+      </pre>
+    </details>
+
+    <table id="download-info-table" class="table-container" style="display: none;">
+        <thead>
+        <tr>
+            <th><b>Serial Number</b></th>
+            <th><b>Downloadable Link</b></th>
+            <th><b>Download Path</b></th>
+            <th><b>Folder Size</b></th>
+            <th><b>Data Availability</b></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for result in search_results %}
+            <tr>
+                <td style="text-align: center;" rowspan="{{ result.total_res }}">{{ forloop.counter }}</td>
+
+                {% if result.git_check %}
+                    <tr>
+                        <td><a href="{{ result.git_result }}" target="_blank">{{ result.git_result }}</a></td>
+
+                        {% if result.git_check %}
+                            <td>{{ result.git_path }}</td>
+                        {% endif %}
+
+                        {% if result.git_size %}
+                            <td style="text-align: center;">{{ result.git_size }} MB</td>
+                        {% endif %}
+
+                        {% if result.git_check or result.zen_check or result.os_check %}
+                            <td style="text-align: center;"><p>&#10004; </p> <!-- Checkmark symbol ✓ -->
+                            </td>
+                        {% else %}
+                            <td style="text-align: center;"><p>&#10008;</p> <!-- Cross symbol ✗ -->
+                            </td>
+                        {% endif %}
+
+                    </tr>
+                {% endif %}
+
+            {% if result.os_check %}
+                <tr>
+                    <td><a href="{{ result.os_result }}" target="_blank">{{ result.os_result }}</a></td>
+
+                    {% if result.os_check %}
+                        <td>{{ result.os_path }}</td>
+                    {% endif %}
+
+                    {% if result.osf_size %}
+                        <td style="text-align: center;">{{ result.osf_size }} MB</td>
+                    {% endif %}
+
+                    {% if result.git_check or result.zen_check or result.os_check %}
+                        <td style="text-align: center;"><p>&#10004; </p> <!-- Checkmark symbol ✓ -->
+                        </td>
+                    {% else %}
+                        <td style="text-align: center;"><p>&#10008;</p> <!-- Cross symbol ✗ -->
+                        </td>
+                    {% endif %}
+
+                </tr>
+            {% endif %}
+
+            {% if result.zen_check %}
+                <tr>
+                    <td><p><a href="{{ result.zen_result }}" target="_blank">{{ result.zen_result }}</a></p></td>
+
+                    {% if result.zen_check %}
+                        <td>{{ result.zen_path }}</td>
+                    {% endif %}
+
+                    {% if result.zen_size %}
+                        <td style="text-align: center;">{{ result.zen_size }} MB</td>
+                    {% endif %}
+
+                    {% if result.git_check or result.zen_check or result.os_check %}
+                        <td style="text-align: center;"><p>&#10004; </p> <!-- Checkmark symbol ✓ -->
+                        </td>
+                    {% else %}
+                        <td style="text-align: center;"><p>&#10008;</p> <!-- Cross symbol ✗ -->
+                        </td>
+                    {% endif %}
+
+                </tr>
+            {% endif %}
+
+            {% if not result.git_check and not result.os_check and not result.zen_check %}
+                <td style="text-align: center;">No Link Found<br>
+                    <img src="{% static 'no_link.png' %}" alt="Red Cross" style="width: 32px; height: 32px;"><br>
+                </td>
+
+                {% if not result.git_check and not result.os_check and not result.zen_check %}
+                    <td style="text-align: center;">No Path Found<br>
+                        <img src="{% static 'no_path.jpg' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                {% endif %}
+
+                {% if not result.git_size and not result.osf_size and not result.zen_size %}
+                    <td style="text-align: center;">Not Found<br>
+                        <img src="{% static 'no_memory.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                {% endif %}
+
+                {% if result.git_check or result.zen_check or result.os_check %}
+                    <td style="text-align: center;"><p>&#10004; </p></td> <!-- Checkmark symbol ✓ -->
+                {% else %}
+                    <td style="text-align: center;"><p>&#10008;</p></td> <!-- Cross symbol ✗ -->
+                {% endif %}
+
+            {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+
+    <!-- Table 4: Code Information -->
+    <h2 style="display: none;">Code Information</h2>
+
+    <details style="display: none;">
+        <summary style="font-size: 20px;">
+            <span class="icon">👇</span>
+            <b>Click here to see details</b>
+        </summary>
+        <pre style="background: #FFFFF7; color: black; padding:20px; font-size: 16px;">
+    Overall Platform for Automated Reproducibility Investigations of Scientific Publications.
+        1. "Folder Name" - The specific folder where the files are located
+        2. "Available Files" - represents which files (Python, RStudio, MATLAB, or Jupyter Notebooks) are available.
+        3. "Output File" - The status of the output file is displayed here
+        4. "Error File" - This column communicates the presence or absence of error file
+        5. "Requirements File" - The existence of an error requirement file is out-lined
+        6. "Time" - Means how much time it took to complete the process.
+      </pre>
+    </details>
+
+    <table id="code-info-table" class="table-container" style="display: none;">
+        <thead>
+        <tr>
+            <th><b>Serial Number</b></th>
+            <th><b>Folder Name</b></th>
+            <th><b>Available Files</b></th>
+            <th>
+                <b>
+                    Output File
+                    <img src="{% static 'icon.png' %}"
+                         title="Click for view full details."
+                         alt="icon" class="image"
+                         style="width: 25px; height: 25px; padding-left: 20px;">
+                </b>
+            </th>
+            <th>
+                <b>
+                    Error File
+                    <img src="{% static 'icon.png' %}"
+                         title="Click for view full details."
+                         alt="icon" class="image"
+                         style="width: 25px; height: 25px; padding-left: 20px;">
+                </b>
+            </th>
+            <th>
+                <b>
+                    Requirements File
+                    <img src="{% static 'icon.png' %}"
+                         title="Click for view full details."
+                         alt="icon" class="image"
+                         style="width: 25px; height: 25px; padding-left: 20px;">
+                </b>
+            </th>
+            <th><b>Time</b></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for result in search_results %}
+            <tr>
+                <td style="text-align: center;" rowspan="{{ result.total_file_2 }}">{{ forloop.counter }}</td>
+
+                {% if result.git_folder and result.git_file %}
+                    <tr>
+                        <td rowspan="{{ result.git_total }}" style="text-align: center;"><b>{{ result.git_folder }}</b>
+                        </td>
+                        {% for github_file in result.git_file %}
+                            <tr>
+                                <td style="text-align: center;"><b> {{ github_file }} </b><br>
+                                    {% if github_file == 'Python' %}
+                                        <img src="{% static 'python.png' %}" alt="python"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% elif github_file == 'Jupyter-Notebook' %}
+                                        <img src="{% static 'Jupyter-Notebook.png' %}" alt="Jupyter-Notebook"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% elif github_file == 'Matlab' %}
+                                        <img src="{% static 'Matlab.png' %}" alt="Matlab"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% elif github_file == 'RStudio' %}
+                                        <img src="{% static 'RStudio.png' %}" alt="RStudio"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: center;" class="data-popup-content">
+                                    <b>
+                                        {% if github_file == 'Python' and result.git_py_file and result.git_py_file_detail %}
+                                            <!-- <a href="{{ result.git_py_file }}" target="_blank">{{ result.git_py_file }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_py_file }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_py_file }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_py_file_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'Jupyter-Notebook' and result.git_ipynb_file and result.git_ipynb_file_detail %}
+                                            <!-- <a href="{{ result.git_ipynb_file }}" target="_blank">{{ result.git_ipynb_file }}</a> -->
+
+                                            <div>
+                                                <a href="#{{ result.git_ipynb_file }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_ipynb_file }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_ipynb_file_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'Matlab' and result.git_matlab_file and result.git_matlab_file_detail %}
+                                            <!-- <a href="{{ result.git_matlab_file }}" target="_blank">{{ result.git_matlab_file }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_matlab_file }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_matlab_file }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_matlab_file_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'RStudio' and result.git_r_file and result.git_r_file_detail %}
+                                            <!-- <a href="{{ result.git_r_file }}" target="_blank">{{ result.git_r_file }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_r_file }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_r_file }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_r_file_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% else %}
+                                            File Not Found<br>
+                                            <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                                 style="width: 32px; height: 32px;"><br>
+                                        {% endif %}
+                                    </b>
+                                </td>
+
+                                <td style="text-align: center;" class="data-popup-content">
+                                    <b>
+                                        {% if github_file == 'Python' and  result.git_py_file_err and result.git_py_file_err_detail %}
+                                            <!-- <a href="{{ result.git_py_file_err }}" target="_blank" class="dynamic-link">{{ result.git_py_file_err }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_py_file_err }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_py_file_err }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_py_file_err_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'Jupyter-Notebook' and result.git_ipynb_file_err and result.git_ipynb_file_err_detail %}
+                                            <!-- <a href="{{ result.git_ipynb_file_err }}" target="_blank" class="dynamic-link">{{ result.git_ipynb_file_err }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_ipynb_file_err }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_ipynb_file_err }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_ipynb_file_err_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'Matlab' and result.git_matlab_file_err and result.git_matlab_file_err_detail %}
+                                            <!-- <a href="{{ result.git_matlab_file_err }}" target="_blank">{{ result.git_matlab_file_err }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_matlab_file_err }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_matlab_file_err }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_matlab_file_err_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+
+                                        {% elif github_file == 'RStudio' and result.git_r_file_err and result.git_r_file_err_detail %}
+                                            <!-- <a href="{{ result.git_r_file_err }}" target="_blank">{{ result.git_r_file_err }}</a> -->
+                                            <div>
+                                                <a href="#{{ result.git_r_file_err }}">
+                                                    Present<br>
+                                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                         style="width: 32px; height: 32px;">
+                                                </a>
+                                            </div>
+                                            <div id="{{ result.git_r_file_err }}" class="modal">
+                                                <a href="#"
+                                                   class="box-close">
+                                                    ×
+                                                </a>
+                                                <div class="contents">
+                                                    <b>
+                                                        <pre>{{ result.git_r_file_err_detail }}</pre>
+                                                    </b>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            File Not Found<br>
+                                            <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                                 style="width: 32px; height: 32px;"><br>
+                                        {% endif %}
+                                    </b>
+                                </td>
+
+                                {% if result.git_requirement and result.git_requirement_detail and forloop.first %}
+                                    <td class="data-popup-content" rowspan="{{ result.total_file_1 }}">
+                                        <div style="text-align: center;">
+                                            <a href="#{{ result.git_requirement }}">
+                                                <strong>Present with Error</strong><br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.git_requirement }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.git_requirement_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+                                    </td>
+                                {% elif result.git_create and result.git_create_requirement and forloop.first %}
+                                    <td class="data-popup-content" rowspan="{{ result.total_file_1 }}">
+                                        <div style="text-align: center;">
+                                            <a href="#{{ result.git_create }}">
+                                                <strong>Generated</strong><br>
+                                                <img src="{% static 'generated_2.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.git_create }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.git_create_requirement }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+                                    </td>
+                                {% elif result.git_requirement_check and forloop.first %}
+                                    <td style="text-align: center;">Present without Error<br>
+                                        <img src="{% static 'present.jpg' %}" alt="presnt"
+                                             style="width: 32px; height: 32px;"><br>
+                                    </td>
+                                {% elif forloop.first %}
+                                    <b>
+                                        <td rowspan="{{ result.total_file_1 }}" style="text-align: center;">File Not
+                                            Found<br>
+                                            <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                                 style="width: 32px; height: 32px;"><br>
+                                        </td>
+                                    </b>
+                                {% endif %}
+
+                                {% if result.total_file_1 > 1 and forloop.first %}
+                                    <td rowspan="{{ result.total_file_1 }}"><p><b> {{ result.dur_min }} </b></p></td>
+                                {% elif result.total_file_1 == 1 and forloop.first %}
+                                    <td><p><b> {{ result.dur_min }} </b></p></td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tr>
+                {% endif %}
+
+            {% if result.zen_folder and result.zen_file %}
+                <tr>
+                    <td rowspan="{{ result.zen_total }}" style="text-align: center;"><b> {{ result.zen_folder }} </b>
+                    </td>
+                    {% for zenodo_file in result.zen_file %}
+                        <tr>
+                            <td style="text-align: center;"><b> {{ zenodo_file }} </b><br>
+                                {% if zenodo_file == 'Python' %}
+                                    <img src="{% static 'python.png' %}" alt="python"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif zenodo_file == 'Jupyter-Notebook' %}
+                                    <img src="{% static 'Jupyter-Notebook.png' %}" alt="Jupyter-Notebook"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif zenodo_file == 'Matlab' %}
+                                    <img src="{% static 'Matlab.png' %}" alt="Matlab"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif zenodo_file == 'RStudio' %}
+                                    <img src="{% static 'RStudio.png' %}" alt="RStudio"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;" class="data-popup-content">
+                                <b>
+                                    {% if zenodo_file == 'Python' and result.zen_py_file %}
+                                        <!-- <a href="{{ result.zen_py_file }}" target="_blank">{{ result.zen_py_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_py_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_py_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_py_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'Jupyter-Notebook' and result.zen_ipynb_file %}
+                                        <!-- <a href="{{ result.zen_ipynb_file }}" target="_blank">{{ result.zen_ipynb_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_ipynb_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_ipynb_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_ipynb_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'Matlab' and result.zen_matlab_file %}
+                                        <!-- <a href="{{ result.zen_matlab_file }}" target="_blank">{{ result.zen_matlab_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_matlab_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_matlab_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_matlab_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'RStudio' and result.zen_r_file %}
+                                        <!-- <a href="{{ result.zen_r_file }}" target="_blank">{{ result.zen_r_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_r_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_r_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_r_file_detail }}</pre>
+                                                </b>
+
+                                            </div>
+                                        </div>
+
+                                    {% else %}
+                                        File Not Found<br>
+                                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% endif %}
+                                </b>
+                            </td>
+
+                            <td style="text-align: center;" class="data-popup-content">
+                                <b>
+                                    {% if zenodo_file == 'Python' and result.zen_py_file_err %}
+                                        <!-- <a href="{{ result.zen_py_file_err }}" target="_blank">{{ result.zen_py_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_py_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_py_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_py_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'Jupyter-Notebook' and result.zen_ipynb_file_err %}
+                                        <!-- <a href="{{ result.zen_ipynb_file_err }}" target="_blank">{{ result.zen_ipynb_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_ipynb_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_ipynb_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_ipynb_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'Matlab' and result.zen_matlab_file_err %}
+                                        <!-- <a href="{{ result.zen_matlab_file_err }}" target="_blank">{{ result.zen_matlab_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_matlab_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_matlab_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_matlab_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif zenodo_file == 'RStudio' and result.zen_r_file_err %}
+                                        <!-- <a href="{{ result.zen_r_file_err }}" target="_blank">{{ result.zen_r_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.zen_r_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.zen_r_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.zen_r_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% else %}
+                                        File Not Found<br>
+                                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% endif %}
+                                </b>
+                            </td>
+
+                            {% if result.zen_requirement and result.zen_requirement_detail and forloop.first %}
+                                <td class="data-popup-content">
+                                    <div style="text-align: center;">
+                                        <a href="#{{ result.zen_requirement }}">
+                                            <strong>Present with Error</strong><br>
+                                            <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                 style="width: 32px; height: 32px;">
+                                        </a>
+                                    </div>
+                                    <div id="{{ result.zen_requirement }}" class="modal">
+                                        <a href="#"
+                                           class="box-close">
+                                            ×
+                                        </a>
+                                        <div class="contents">
+                                            <b>
+                                                <pre>{{ result.zen_requirement_detail }}</pre>
+                                            </b>
+                                        </div>
+                                    </div>
+                                </td>
+                            {% elif result.zen_create and result.zen_create_requirement and forloop.first %}
+                                <td class="data-popup-content" rowspan="{{ result.total_file_1 }}">
+                                    <div style="text-align: center;">
+                                        <a href="#{{ result.zen_create }}">
+                                            <strong>Generated</strong><br>
+                                            <img src="{% static 'generated_2.jpg' %}" alt="presnt"
+                                                 style="width: 32px; height: 32px;">
+                                        </a>
+                                    </div>
+                                    <div id="{{ result.zen_create }}" class="modal">
+                                        <a href="#"
+                                           class="box-close">
+                                            ×
+                                        </a>
+                                        <div class="contents">
+                                            <b>
+                                                <pre>{{ result.zen_create_requirement }}</pre>
+                                            </b>
+                                        </div>
+                                    </div>
+                                </td>
+                            {% elif result.zen_requirement_check and forloop.first %}
+                                <td style="text-align: center;">Present without Error<br>
+                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                         style="width: 32px; height: 32px;"><br>
+                                </td>
+                            {% elif forloop.first %}
+                                <td style="text-align: center;">Files Not Found<br>
+                                    <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                         style="width: 32px; height: 32px;"><br>
+                                </td>
+                            {% endif %}
+
+                            {% if result.total_file_1 > 1 and forloop.first and not result.git_folder %}
+                                <td rowspan="{{ result.total_file_1 }}"><p><b> {{ result.dur_min }} </b></p></td>
+                            {% elif result.total_file_1 == 1 and forloop.first and not result.git_folder %}
+                                <td><p><b> {{ result.dur_min }} </b></p></td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tr>
+            {% endif %}
+
+            {% if result.osf_folder and result.osf_file %}
+                <tr>
+                    <td rowspan="{{ result.osf_total }}" style="text-align: center;"><b> {{ result.osf_folder }} </b>
+                    </td>
+                    {% for os_file in result.osf_file %}
+                        <tr>
+                            <td style="text-align: center;"><b> {{ os_file }} </b><br>
+                                {% if os_file == 'Python' %}
+                                    <img src="{% static 'python.png' %}" alt="python"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif os_file == 'Jupyter-Notebook' %}
+                                    <img src="{% static 'Jupyter-Notebook.png' %}" alt="Jupyter-Notebook"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif os_file == 'Matlab' %}
+                                    <img src="{% static 'Matlab.png' %}" alt="Matlab"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% elif os_file == 'RStudio' %}
+                                    <img src="{% static 'RStudio.png' %}" alt="RStudio"
+                                         style="width: 32px; height: 32px;"><br>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;" class="data-popup-content">
+                                <b>
+                                    {% if os_file == 'Python' and result.osf_py_file %}
+                                        <!-- <a href="{{ result.osf_py_file }}" target="_blank">{{ result.osf_py_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_py_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_py_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_py_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+                                    {% elif os_file == 'Jupyter-Notebook' and result.osf_ipynb_file %}
+                                        <div>
+                                            <a href="#{{ result.osf_ipynb_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_ipynb_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_ipynb_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif os_file == 'Matlab' and result.osf_matlab_file %}
+                                        <!-- <a href="{{ result.osf_matlab_file }}" target="_blank">{{ result.osf_matlab_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_matlab_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_matlab_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_matlab_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif os_file == 'RStudio' and result.osf_r_file %}
+                                        <!-- <a href="{{ result.osf_r_file }}" target="_blank">{{ result.osf_r_file }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_r_file }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_r_file }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_r_file_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% else %}
+                                        File Not Found<br>
+                                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% endif %}
+                                </b>
+                            </td>
+
+                            <td style="text-align: center;" class="data-popup-content">
+                                <b>
+                                    {% if os_file == 'Python' and result.osf_py_file_err %}
+                                        <!-- <a href="{{ result.osf_py_file_err }}" target="_blank">{{ result.osf_py_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_py_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_py_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_py_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif os_file == 'Jupyter-Notebook' and result.osf_ipynb_file_err %}
+                                        <!-- <a href="{{ result.osf_ipynb_file_err }}" target="_blank">{{ result.osf_ipynb_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_ipynb_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_ipynb_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_ipynb_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif os_file == 'Matlab' and result.osf_matlab_file_err %}
+                                        <!-- <a href="{{ result.osf_matlab_file_err }}" target="_blank">{{ result.osf_matlab_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_matlab_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_matlab_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_matlab_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% elif os_file == 'RStudio' and result.osf_r_file_err %}
+                                        <!-- <a href="{{ result.osf_r_file_err }}" target="_blank">{{ result.osf_r_file_err }}</a> -->
+                                        <div>
+                                            <a href="#{{ result.osf_r_file_err }}">
+                                                Present<br>
+                                                <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                     style="width: 32px; height: 32px;">
+                                            </a>
+                                        </div>
+                                        <div id="{{ result.osf_r_file_err }}" class="modal">
+                                            <a href="#"
+                                               class="box-close">
+                                                ×
+                                            </a>
+                                            <div class="contents">
+                                                <b>
+                                                    <pre>{{ result.osf_r_file_err_detail }}</pre>
+                                                </b>
+                                            </div>
+                                        </div>
+
+                                    {% else %}
+                                        File Not Found<br>
+                                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                             style="width: 32px; height: 32px;"><br>
+                                    {% endif %}
+                                </b>
+                            </td>
+
+                            {% if result.osf_requirement and result.osf_requirement_detail and forloop.first %}
+                                <td class="data-popup-content">
+                                    <div style="text-align: center;">
+                                        <a href="#{{ result.osf_requirement }}">
+                                            <strong>Present with Error</strong><br>
+                                            <img src="{% static 'present.jpg' %}" alt="presnt"
+                                                 style="width: 32px; height: 32px;">
+                                        </a>
+                                    </div>
+                                    <div id="{{ result.osf_requirement }}" class="modal">
+                                        <a href="#"
+                                           class="box-close">
+                                            ×
+                                        </a>
+                                        <div class="contents">
+                                            <b>
+                                                <pre>{{ result.osf_requirement_detail }}</pre>
+                                            </b>
+                                        </div>
+                                    </div>
+                                </td>
+                            {% elif result.osf_create and result.osf_create_requirement and forloop.first %}
+                                <td class="data-popup-content" rowspan="{{ result.total_file_1 }}">
+                                    <div style="text-align: center;">
+                                        <a href="#{{ result.osf_create }}">
+                                            <strong>Generated</strong><br>
+                                            <img src="{% static 'generated_2.jpg' %}" alt="presnt"
+                                                 style="width: 32px; height: 32px;">
+                                        </a>
+                                    </div>
+                                    <div id="{{ result.osf_create }}" class="modal">
+                                        <a href="#"
+                                           class="box-close">
+                                            ×
+                                        </a>
+                                        <div class="contents">
+                                            <b>
+                                                <pre>{{ result.osf_create_requirement }}</pre>
+                                            </b>
+                                        </div>
+                                    </div>
+                                </td>
+                            {% elif result.osf_requirement_check and forloop.first %}
+                                <td style="text-align: center;">Present without Error<br>
+                                    <img src="{% static 'present.jpg' %}" alt="presnt"
+                                         style="width: 32px; height: 32px;"><br>
+                                </td>
+                            {% elif forloop.first %}
+                                <td style="text-align: center;">File Not Found<br>
+                                    <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                                         style="width: 32px; height: 32px;"><br>
+                                </td>
+                            {% endif %}
+
+                            {% if result.total_file_1 > 1 and forloop.first and not result.git_folder and not result.zen_folder %}
+                                <td rowspan="{{ result.total_file_1 }}"><p><b> {{ result.dur_min }} </b></p></td>
+                            {% elif result.total_file_1 == 1 and forloop.first and not result.git_folder and not result.zen_folder %}
+                                <td><p><b> {{ result.dur_min }} </b></p></td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tr>
+            {% endif %}
+
+
+            {% if not result.git_folder and not result.zen_folder and not result.osf_folder %}
+                <tr>
+                    <td style="text-align: center;">Not Found<br>
+                        <img src="{% static 'folder_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td><p> {{ result.dur_min }}</p></td>
+                </tr>
+            {% elif not result.git_file and not result.zen_file and not result.osf_file %}
+                <tr>
+                    {% if result.git_folder %}
+                        <td style="text-align: center;"><b>{{ result.git_folder }}</b></td>
+                    {% elif result.zen_folder %}
+                        <td style="text-align: center;"><b>{{ result.zen_folder }}</b></td>
+                    {% elif result.osf_folder %}
+                        <td style="text-align: center;"><b>{{ result.osf_folder }}</b></td>
+                    {% endif %}
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td style="text-align: center;">File Not Found<br>
+                        <img src="{% static 'files_not_found.png' %}" alt="Red Cross"
+                             style="width: 32px; height: 32px;"><br>
+                    </td>
+                    <td><p> {{ result.dur_min }}</p></td>
+                </tr>
+            {% endif %}
+
+        {% endfor %}
+        </tbody>
+    </table>
+
+
+    <button class="submit-button" type="button" style="display: block; margin: 5vh auto 0;"
+            onclick="downloadAllTables();">Download Report
+    </button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js.map"></script>
+
+    <script>
+        // Get the close button for the pop-up window.
+        const closeButton = document.querySelector('.box-close');
+
+        // Add a click event listener to the close button.
+        closeButton.addEventListener('click', function (event) {
+            // Prevent the default behavior of the href tag.
+            event.preventDefault();
+
+            // Close the pop-up window.
+            this.closest('.modal').classList.remove('active');
+
+            // Stop the event from propagating further.
+            event.stopPropagation();
+        });
+    </script>
+
+    <script>
+        function download_table_as_csv(table_id, data, section_heading) {
+            var rows = document.querySelectorAll('table#' + table_id + ' tr');
+
+            for (var i = 0; i < rows.length; i++) {
+                var rowData = [], cols = rows[i].querySelectorAll('td, th');
+
+                for (var j = 0; j < cols.length; j++) {
+                    var cellData = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+
+                    // Check if the cell has the 'exclude-from-csv' class
+                    if (cols[j].classList.contains('data-popup-content')) {
+                        if (cellData.includes("Present")) {
+                            cellData = "Present";
+                        } else if (cellData.includes("File Not Found")) {
+                            cellData = "File Not Found";
+                        } else {
+                            cellData = "";
+                        }
+                    }
+
+                    // Check if cellData contains any number
+                    if (/^\d+$/.test(cellData)) {
+                        continue; // Skip this cell
+                    }
+
+                    if (i === 0 && j === 0) {
+                        continue; // Skip the first element in the first row when table_id is 'link-info-table'
+                    }
+
+                    if (j === 0) {
+                        // Remove numbers from cellData
+                        cellData = cellData.replace(/\d+/g, '');
+                        if (table_id != 'link-info-table' && table_id != 'download-info-table' && table_id != 'code-info-table') {
+                            continue;
+                        }
+                    }
+
+                    if (j == 3) {
+                        // Insert a space between different tools using regex
+                        cellData = cellData.replace(/(Python|Jupyter-Notebook|RStudio|MATLAB)/g, '$1  ');
+                    }
+
+                    cellData = cellData.replace(/&#10004;|✔/g, '1'); // Replace any "&#10004;" or "✔" with "1"
+                    cellData = cellData.replace(/&#10008;|✘/g, '0'); // Replace any "&#10004;" or "✘" with "0"
+                    cellData = cellData.replace(/Present/g, '1')  // Replace Present with 1
+                    cellData = cellData.replace(/File Not Found/g, '0');  // Replace File Not Found with 0
+
+                    rowData.push(cellData);
+                }
+                data.push(rowData);
+            }
+        }
+
+        function downloadTable(zip, table_id, section_heading) {
+            var tableData = [];
+            download_table_as_csv(table_id, tableData, section_heading);
+
+            // Convert tableData to a CSV string
+            var csvContent = tableData.map(function (row) {
+                return row.join(',');
+            }).join('\n');
+
+            // Add the CSV content to the zip
+            zip.file(section_heading.replace(/\s+/g, '_') + '.csv', csvContent);
+
+            /*var workbook = XLSX.utils.book_new();
+            var worksheet = XLSX.utils.aoa_to_sheet(tableData);
+
+            var columnWidths = tableData.reduce(function (acc, row) {
+                row.forEach(function (cell, i) {
+                    var cellLength = cell.length;
+                    acc[i] = Math.max((acc[i] || 0), cellLength);
+                });
+                return acc;
+            }, []);
+
+            worksheet['!cols'] = columnWidths.map(function (width) {
+                return {wch: width + 2};
+            });
+
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+            var filename = random_number + '_' + section_heading.replace(/\s+/g, '_') + '.csv';
+            XLSX.writeFile(workbook, filename);*/
+        }
+
+        function downloadAllTables() {
+            const random_number = generateRandomNumber();
+
+            // Create a JSZip instance
+            const zip = new JSZip();
+
+            downloadTable(zip, 'file-info-table', 'General Information');
+            downloadTable(zip, 'link-info-table', 'Link Information');
+            downloadTable(zip, 'download-info-table', 'Download Information');
+            downloadTable(zip, 'code-info-table', 'Code Information');
+
+            // Generate the zip file
+            zip.generateAsync({type: 'blob'}).then(function (content) {
+                // Create a Blob object and create a download link
+                const blob = new Blob([content]);
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = `Data_Report_${random_number}.zip`;
+                link.click();
+            });
+        }
+
+        function generateRandomNumber() {
+            return Math.floor(Math.random() * 1000000);
+        }
+    </script>
+</div>
+
+<script>
+    // Function to toggle the visibility of Table 2, Table 3 and Table 4 based on the selected option
+    function toggleTables() {
+        var selectedTable = document.getElementById('serialNumberDropdown').value;
+
+        // Show Table 1 (Always displayed)
+        document.getElementById('file-info-table').style.display = 'table';
+
+        // Hide Table 2, Table 3 and Table 4
+        document.getElementById('link-info-table').style.display = 'none';
+        document.getElementById('download-info-table').style.display = 'none';
+        document.getElementById('code-info-table').style.display = 'none';
+
+        // If a table other than Table 1 is selected, show Table 2, Table 3 and Table 4
+        if (selectedTable !== 'file-info-table') {
+            document.getElementById('link-info-table').style.display = 'table';
+            document.getElementById('download-info-table').style.display = 'table';
+            document.getElementById('code-info-table').style.display = 'table';
+        }
+
+        var headings = document.querySelectorAll('h2');
+        headings.forEach(function (heading) {
+            heading.style.display = 'none';
+        });
+
+        // If a table other than "All" is selected, show the corresponding table and its heading
+        if (selectedTable) {
+            headings.forEach(function (heading) {
+                heading.style.display = 'block';
+            });
+        }
+
+        var headings_1 = document.querySelectorAll('details');
+        headings_1.forEach(function (heading) {
+            heading.style.display = 'none';
+        });
+
+        // If a table other than "All" is selected, show the corresponding table and its heading
+        if (selectedTable) {
+            headings_1.forEach(function (heading) {
+                heading.style.display = 'block';
+            });
+        }
+
+    }
+</script>
+
+<script>
+    // Function to update the table based on the selected serial number
+    function updateTable(tableId) {
+        var selectedSerialNumber = document.getElementById('serialNumberDropdown').value;
+        var rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+        var rowsToShow = new Set();
+
+        rows.forEach(function (row, rowIndex) {
+            var rowSerialNumber = row.querySelector('td:first-child').innerText.trim();
+            if (rowSerialNumber === selectedSerialNumber || selectedSerialNumber === 'All') {
+                var rowspan = parseInt(row.querySelector('td:first-child').getAttribute('rowspan')) || 1;
+                for (var i = rowIndex; i < rowIndex + rowspan; i++) {
+                    rowsToShow.add(i);
+                }
+            }
+        });
+
+        rows.forEach(function (row, rowIndex) {
+            if (rowsToShow.has(rowIndex)) {
+                row.style.display = 'table-row';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>
+
+<script>
+    function showDiv() {
+        document.getElementById('resultsContainer').style.display = "block";
+    }
+</script>
+
+<script>
+    function handleFormSubmission(event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        // Display the loading overlay
+        // document.getElementById("heading").style.display = "block";
+        // document.getElementById("uploadForm").style.display = "block";
+        // document.getElementById("resultsContainer").style.display = "block";
+        document.getElementById("loadingOverlay").style.display = "block";
+
+        // Perform the form submission
+        var form = document.getElementById("uploadForm");
+        var formData = new FormData(form);
+
+        // Send the form data using AJAX
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", form.action);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                // Hide the loading overlay
+                document.getElementById("heading").style.display = "block";
+                document.getElementById("uploadForm").style.display = "block";
+                // document.getElementById("resultsContainer").style.display = "none";
+                document.getElementById("loadingOverlay").style.display = "none";
+
+                // Extract the results HTML
+                var resultsHtml = xhr.responseText;
+
+                // Find the results container element
+                // var resultsContainer = document.getElementById("resultsContainer");
+
+                // Update the results container with the received HTML
+                var tempContainer = document.createElement("div");
+                tempContainer.innerHTML = resultsHtml;
+
+                // Find the results container element inside the temporary container
+                var resultsContainer = tempContainer.querySelector("#resultsContainer");
+
+                // Update the results container with the content
+                document.getElementById("resultsContainer").innerHTML = resultsContainer.innerHTML;
+
+                // Hide the form and heading
+                //form.style.display = "none";
+                document.getElementById("uploadForm").style.display = "block";
+                document.getElementById("heading").style.display = "block";
+            }
+        };
+        xhr.send(formData);
+    }
+
+    // Attach the event listener for the submit button
+    document.getElementById("submitBtn").addEventListener("click", handleFormSubmission);
+</script>
+
+</body>
+</html>
