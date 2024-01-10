@@ -9,16 +9,15 @@ In the world of scientific research, it is very crucial to reproduce any scienti
 ### Betreuer
   Jan Bernoth
 ## How to Run the Code
-To run the code, you must install Anaconda, Python, and PyCharm. 
+To run the code, you must install Anaconda, Python, and PyCharm. Additionally, as the platform checks papers for Matlab and RStudio, so install them as well. 
 
-Here is a "requirements.txt" file, run the file using the "pip install -r requirements.txt" command. 
+Download the folder <b>Automated_Reproducibility</b> and import it into the PyCharm. 
 
-python.exe -m pip install --upgrade pip
+Here is a "requirements.txt" file, run the file using the "pip install -r requirements.txt" command. Then in the command line run the command `python manage.py runserver`. You can clear the cache using the command `python manage.py clearcache`
 
-When importing the project in PyCharm and then in the command line run the command `python manage.py runserver`. You can clear the cache using the command `python manage.py clearcache`
 ## Folder Description
 - `static` includes the CSS file and the picture used in the platform.
-- `multifileupload` all the settings and URLs in the project.
+- `autoreproducibility` all the settings and URLs in the project.
 - `myapp` all the main files including the html file.
 ## File Description
 - `views.py` main file where all the variables and tasks are done.
