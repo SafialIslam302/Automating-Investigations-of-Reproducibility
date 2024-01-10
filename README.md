@@ -7,7 +7,7 @@ In the world of scientific research, it is very crucial to reproduce any scienti
 1. Prof. Dr. Ulrike Lucke
 2. Dr. Christian Riedel
 ### Betreuer
-  Jan Bernoth
+1. Jan Bernoth
 ## How to Run the Code
 To run the code, you must install Anaconda, Python, and PyCharm. Additionally, as the platform checks papers for Matlab and RStudio, so install them as well. 
 
