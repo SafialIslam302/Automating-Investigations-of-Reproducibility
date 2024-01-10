@@ -13,7 +13,7 @@ To run the code, you must install Anaconda, Python, and PyCharm. Additionally, a
 
 Download the folder <b>Automated_Reproducibility</b> and import it into the PyCharm. 
 
-Here is a "requirements.txt" file, run the file using the "pip install -r requirements.txt" command. Then in the command line run the command `python manage.py runserver`. You can clear the cache using the command `python manage.py clearcache`
+Here is a <b>requirements.txt</b> file, run the file using the `pip install -r requirements.txt` command. Then in the command line run the command `python manage.py runserver`. You can clear the cache using the command `python manage.py clearcache`
 
 ## Folder Description
 - `static` includes the CSS file and the picture used in the platform.
